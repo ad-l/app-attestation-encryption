@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confidential GPU Inference Demo</title>
+    <script src="jquery.js"></script>
+    <script src="showdown.js"></script>
+    <script src="djcl.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+  <body>
+    <div id="app">
+    <main class="h-full text-sm bg-gradient-to-t from-indigo-100 bg-fixed overflow-hidden s-XsEmFtvddWTw">
+      <div class="flex h-full flex-col py-12 overflow-y-auto s-XsEmFtvddWTw" id="scroll">
+
+      <div class="w-4/5 mx-auto flex flex-col mb-32 s-XsEmFtvddWTw" id="msgs">
+
+      </div>
+
+        <div class="text-sm w-full fixed bottom-16 s-XsEmFtvddWTw">
+        <div class="shadow-lg bg-indigo-50 rounded-lg w-4/5 xl:w-2/3 2xl:w-1/2 mx-auto s-XsEmFtvddWTw">
+        <div class="rounded-t-lg px-4 py-2 font-light s-XsEmFtvddWTw">
+            <div class="s-XsEmFtvddWTw">
+              <span class="font-semibold s-XsEmFtvddWTw">RAG mode</span> &nbsp;
+              <label class="mr-2 s-XsEmFtvddWTw"><input type="radio" value="false" name="rag"> Disabled</label> <label class="s-XsEmFtvddWTw"><input type="radio" value="true" name="rag" checked="checked"> Enabled</label></div>
+            <div style="">
+                <form id="ragfile">
+                    <label for='files'>Select files</label>
+                    <input id='files' type="file" multiple>
+                    <input class="submit-btn" type='submit' value="Upload" />
+                    <input type='button' id="abort" value="Abort" />
+                    <input type='button' id="clear" value="Clear chat" />
+                </form>
+            </div>
+        </div>
+        <form class="rounded-md w-full bg-white p-2 m-0 s-XsEmFtvddWTw" id="chat" target="#">
+            <input placeholder="What do you want to know?" class="text-lg w-full bg-white focus:outline-none px-4 s-XsEmFtvddWTw" type="text" id="prompt">
+        </form></div>
+        </div>
+      </div>
+    </main> <!--<App>--></div>
+    <script type="module">
+      import * as hpke from "https://esm.sh/hpke-js";
+      window.hpke = hpke;
+      window.sk = await fetch("/kex", {method:"GET"});
+      window.sk = await sk.json();
+      window.cs = new hpke.CipherSuite({
+        kem: hpke.KemId.DhkemP256HkdfSha256,
+        kdf: hpke.KdfId.HkdfSha256,
+        aead: hpke.AeadId.Aes128Gcm,
+      });
+      sk = await cs.importKey("jwk", sk);
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>
