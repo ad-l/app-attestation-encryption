@@ -5,6 +5,23 @@
 2. Allow adding a border to an element by just adding a border-width. (https://github.com/tailwindcss/tailwindcss/pull/116)
 */
 
+#extwarn {
+  width: 450px;
+  height: 80px;
+  position:fixed;
+  top: 4px;
+  left: 0px;
+  margin-left: 180px;
+  background:#ffeeee;
+  color:#330000;
+  border: 1px solid #966;
+  border-radius: 15px;
+  text-align: center;
+  font-size: 10pt;
+  padding: 10px;
+  z-index: 10;
+}
+
 *,
 ::before,
 ::after {

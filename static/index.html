@@ -10,6 +10,10 @@
     <link rel="stylesheet" href="style.css">
 </head>
   <body>
+    <div id="extwarn" style="display:none;">
+      <div align="center"><b>You are missing the attestation helper extension</b></div>
+      By installing the extension, you can check that the data you submit is processed is an isolated environment that controls how it can be used.
+    </div>
     <div id="app">
     <main class="h-full text-sm bg-gradient-to-t from-indigo-100 bg-fixed overflow-hidden s-XsEmFtvddWTw">
       <div class="flex h-full flex-col py-12 overflow-y-auto s-XsEmFtvddWTw" id="scroll">
@@ -40,18 +44,6 @@
         </div>
       </div>
     </main> <!--<App>--></div>
-    <script type="module">
-      import * as hpke from "https://esm.sh/hpke-js";
-      window.hpke = hpke;
-      window.sk = await fetch("/kex", {method:"GET"});
-      window.sk = await sk.json();
-      window.cs = new hpke.CipherSuite({
-        kem: hpke.KemId.DhkemP256HkdfSha256,
-        kdf: hpke.KdfId.HkdfSha256,
-        aead: hpke.AeadId.Aes128Gcm,
-      });
-      sk = await cs.importKey("jwk", sk);
-    </script>
     <script src="script.js"></script>
 </body>
 </html>

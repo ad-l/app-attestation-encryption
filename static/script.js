@@ -1,9 +1,19 @@
 const controller = new AbortController();
 
+if (document.cookie.indexOf('__attestation_extension__') == -1) {
+  $("#extwarn").show();
+} else {
+  window.postMessage("__attestation_init", self.origin);
+}
+
+var uid;
+function refreshUser(){uid = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('');}
+refreshUser();
+
 async function query(prompt, rag)
 {
   const q = encrypt(JSON.stringify({text:prompt, rag:rag}));
-  const response = await fetch("/query-stream?q="+encodeURIComponent(q), {
+  const response = await fetch("/query-stream?uid="+uid+"&q="+encodeURIComponent(q), {
     method: "GET",
     mode: "cors",
     cache: "no-cache",
@@ -59,7 +69,7 @@ $("form#ragfile").on("submit", function(e){
     for(let i =0; i < files.files.length; i++) {
         formData.append("files", files.files[i]);
     }
-    fetch("/upload", {
+    fetch("/upload?uid="+uid, {
         method: 'POST',
         body: formData,
     }).then((res) => alert("Your data has been added to the RAG database!"))
@@ -67,7 +77,7 @@ $("form#ragfile").on("submit", function(e){
 })
 
 $("form#chat").on("submit", function(){
-    if(!window.sk) return false;
+//    if(!window.sk) return false;
     var prompt = $("input#prompt").val();
     var rag = $("input[name=rag]:checked").val();
     $('#prompt').prop('disabled', true);
@@ -78,7 +88,7 @@ $("form#chat").on("submit", function(){
 })
 
 $("#abort").on("click", () => {controller.abort();$('#prompt').prop('disabled', false);})
-$("#clear").on("click", () => {$("#msgs").empty();})
+$("#clear").on("click", () => {$("#msgs").empty(); refreshUser();})
 
 function encrypt(p){
     aes.setKey("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00");

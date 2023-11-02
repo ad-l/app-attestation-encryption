@@ -7,17 +7,20 @@ Distributed under MIT license.
 import { PDFLoader } from "langchain/document_loaders/fs/pdf";
 import { Document } from "langchain/document";
 import { ChatOllama } from "langchain/chat_models/ollama";
+import { Ollama } from "langchain/llms/ollama";
 import { OllamaEmbeddings } from "langchain/embeddings/ollama";;
-import { LLMChain } from "langchain/chains";
-import { HNSWLib } from "langchain/vectorstores/hnswlib";
+//import { HNSWLib } from "langchain/vectorstores/hnswlib";
+import { FaissStore } from "langchain/vectorstores/faiss";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { BufferMemory } from "langchain/memory";
 import * as fs from "fs";
 import { PromptTemplate } from "langchain/prompts";
 import { RunnableSequence } from "langchain/schema/runnable";
-import { BaseMessage } from "langchain/schema";
+import { ScoreThresholdRetriever } from "langchain/retrievers/score_threshold";
 import { formatDocumentsAsString } from "langchain/util/document";
 import { StringOutputParser } from "langchain/schema/output_parser";
+import { ContextualCompressionRetriever } from "langchain/retrievers/contextual_compression";
+import { LLMChainExtractor } from "langchain/retrievers/document_compressors/chain_extract";
 
 /**** Application configuration ****/
 let OLLAMA_URL = "http://127.0.0.1:11434";
@@ -28,7 +31,6 @@ let USER_TIMEOUT = 10 * 60 * 60 * 1000;
 
 /***********************************/
 
-// We create an in-memory HNSW store for each user
 // The data is only stored for a limited time, and
 // can only be queried by the owner
 let users = {};
@@ -38,6 +40,17 @@ const ollama = new ChatOllama({
     baseUrl: OLLAMA_URL,
     model: OLLAMA_MODEL,
 });
+
+async function buildRetriever(docs) {
+  const vec = await FaissStore.fromDocuments(docs, new OllamaEmbeddings());
+  let base = ScoreThresholdRetriever.fromVectorStore(vec, {
+    minSimilarityScore: 0.5,
+    maxK: 8,
+    kIncrement: 2,
+  });
+  console.log("New vector database created");
+  return base;
+}
 
 // Force model to load and stay in GPU memory
 console.log("Loading model...")
@@ -53,6 +66,7 @@ const txt = new RecursiveCharacterTextSplitter({ chunkSize: 500, chunkOverlap: 2
 // Keep chat history in user object
 function formatHistory(human, ai, previous)
 {
+    return "";
     const newInteraction = `Human: ${human}\nAI: ${ai}`;
     if (!previous) {
       return newInteraction;
@@ -90,11 +104,10 @@ async function checkUser(uid){
         clearTimeout(users[uid].timer);
         users[uid].timer = setTimeout(clearUser, USER_TIMEOUT);
     } else {
-        const docs = [new Document({pageContent:"The current date is "+(new Date()), matadata: { name: "<inference app>" }})];
-        const vec = await HNSWLib.fromDocuments(docs, new OllamaEmbeddings());
-
+        const docs = [new Document({pageContent:"The current date is "+(new Date()), metadata: { name: "<inference app>", ignore:true }})];
+        const retriever = await buildRetriever(docs);
         users[uid] = {
-            retriever: vec.asRetriever(),
+            retriever: retriever,
             docs: docs,
             history: "",
             timer: setTimeout(clearUser, USER_TIMEOUT)
@@ -132,7 +145,7 @@ export async function stream(uid, q, res){
         // Write context information
         var extra = "", n = "";
         relevantDocs.forEach(function(x){
-          if(x.metadata.name) {
+          if(x.metadata.name && !x.metadata.ignore) {
             if(n != x.metadata.name) {
                 n = x.metadata.name;
                 extra += (extra?", ":"")+"File `"+n+"`";
@@ -177,11 +190,10 @@ export async function loadFile(uid, file) {
         }
         console.log("Extracted "+docs.length+" chunks from "+fn);
         user.docs.push.apply(user.docs, docs);
-        const vec = await HNSWLib.fromDocuments(docs, new OllamaEmbeddings());
-        user.retriever = vec.asRetriever();
+        user.retriever = await buildRetriever(user.docs);
         return true;
     } catch(e) {
-        console.log(e);
+        console.log("Import error: "+e);
         return false;
     } finally {
         // Delete the file
