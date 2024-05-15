@@ -5,7 +5,7 @@ import http from 'http';
 import https from 'https';
 import express from 'express';
 import crypto from 'node:crypto'
-import pem from 'pemtools'
+//import pem from 'pemtools'
 import tss from 'tss.js'
 import fs from 'node:fs'
 import util from 'util';
@@ -15,19 +15,23 @@ import { AeadId, CipherSuite, KdfId, KemId } from "hpke-js";
 import { exit } from 'process';
 import { exec } from 'child_process'
 
+// The domain name to use for the service
+const domain = "ragdemo.eastus2.cloudapp.azure.com";
+
 // HTTPS Configuration - set to null for HTTP
 // const tls = null
 const tls = {
-  key: fs.readFileSync("/etc/ssl/privkey.pem"),
-  cert: fs.readFileSync("/etc/ssl/cert.pem"),
-  ca: fs.readFileSync("/etc/ssl/chain.pem")
+  key: fs.readFileSync(`/etc/letsencrypt/live/${domain}/privkey.pem`),
+  cert: fs.readFileSync(`/etc/letsencrypt/live/${domain}/cert.pem`),
+  ca: fs.readFileSync(`/etc/letsencrypt/live/${domain}/chain.pem`)
 }
 
 // Port for the service
 const port = tls ? 443 : 80;
 
 // AMD KDS and MAA endpoints
-const AMD_KDS = "https://kdsintf.amd.com";
+const IMDS = "http://169.254.169.254"
+//const AMD_KDS = "https://kdsintf.amd.com";
 const MAA = "https://sharedeus2.eus2.attest.azure.net"
 
 // -----------------------------------------------------------------------
@@ -131,7 +135,12 @@ if (fs.existsSync('vcek.pem')) {
   vcek = await readFile("vcek.pem");
 }else{
   console.log("Refreshing the VCEK certificate chain from AMD KDS...")
+  let vcek = await fetch(IMDS+"/metadata/THIM/amd/certification", {method:"GET", headers:{"Metadata":"true"}});
+  vcek = await vcek.json();
+  vcek = vcek.vcekCert + vcek.certificateChain;
 
+/**
+ * Alternative code to download from AMD KDS instead of IMDS
   // This is PEM encoded
   let kds = await fetch(AMD_KDS+"/vcek/v1/Genoa/cert_chain", {method:"GET"});
   let vcek_ca = Buffer.from(await (await kds.blob()).arrayBuffer());
@@ -142,6 +151,7 @@ if (fs.existsSync('vcek.pem')) {
 
   // Combine them in a full chain
   vcek = Buffer.concat([Buffer.from(pem(cpucert, 'CERTIFICATE').toString()+"\n", "utf8"), vcek_ca]);
+**/
 
   // Cache the chain to disk
   const { writeFile } = await import("node:fs/promises");
@@ -183,7 +193,7 @@ app.use("/attest", async function(req, res, next){
 
       const aexec = util.promisify(exec);
       let res = await aexec("gpuattest");
-      jwt.gpu = res.stdout.split("\n")[5].substring(28);
+      jwt.gpu = res.stdout.split("\n")[4].substring(28);
       jwt.time = Date.now();
     }
     catch(e){
